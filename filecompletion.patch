@@ -1,0 +1,65 @@
+--- dmenu.c	2012-01-08 07:18:43.000000000 -0500
++++ dmenu-patched.c	2012-08-02 10:27:52.068108314 -0400
+@@ -12,6 +12,7 @@
+ #include <X11/extensions/Xinerama.h>
+ #endif
+ #include "draw.h"
++#include <wordexp.h>
+ 
+ #define INTERSECT(x,y,w,h,r)  (MAX(0, MIN((x)+(w),(r).x_org+(r).width)  - MAX((x),(r).x_org)) \
+                              * MAX(0, MIN((y)+(h),(r).y_org+(r).height) - MAX((y),(r).y_org)))
+@@ -38,6 +39,7 @@
+ static void run(void);
+ static void setup(void);
+ static void usage(void);
++static void matchfile(char *filestart);
+ 
+ static char text[BUFSIZ] = "";
+ static int bh, mw, mh;
+@@ -375,6 +377,10 @@
+ 		}
+ 		break;
+ 	case XK_Tab:
++        if( strchr(text, ' ')!=NULL ) {
++            matchfile( strchr(text, ' ')+1);
++            break;
++        }
+ 		if(!sel)
+ 			return;
+ 		strncpy(text, sel->text, sizeof text);
+@@ -464,6 +470,35 @@
+ }
+ 
+ void
++matchfile(char *filestart) {
++	wordexp_t exp;
++	int i, j, k, p=strlen(filestart);
++	filestart[ p+1 ] = 0;
++	filestart[ p ] = '*';
++
++	wordexp(filestart, &exp, 0);
++	if( exp.we_wordc > 0 ) {
++		for(j=0,i=0; exp.we_wordv[0][i]!=0; i++,j++) {
++			if( exp.we_wordv[0][i]==' ' ) filestart[j++]='\\';
++			filestart[j]=exp.we_wordv[0][i];
++		}
++		filestart[j]=0;
++
++		for(k=1; k<exp.we_wordc; k++)
++			for(j=0, i=0; exp.we_wordv[k][i]; i++,j++) {
++				if( filestart[j]=='\\' ) j++;
++				if( filestart[j]!=exp.we_wordv[k][i] ) {
++					filestart[j]=0;
++					break;
++				}
++			}
++	} else {
++		filestart[ p ] = 0;
++	}
++	wordfree(&exp);
++}
++
++void
+ readstdin(void) {
+ 	char buf[sizeof text], *p, *maxstr = NULL;
+ 	size_t i, max = 0, size = 0;
